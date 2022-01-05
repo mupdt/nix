@@ -149,51 +149,6 @@ Path LocalFSStore::addPermRoot(const Path & _storePath,
 
 void LocalStore::addTempRoot(const Path & path)
 {
-    auto state(_state.lock());
-
-    /* Create the temporary roots file for this process. */
-    if (!state->fdTempRoots) {
-
-        while (1) {
-            AutoCloseFD fdGCLock = openGCLock(ltRead);
-
-            if (pathExists(fnTempRoots))
-                /* It *must* be stale, since there can be no two
-                   processes with the same pid. */
-                unlink(fnTempRoots.c_str());
-
-            state->fdTempRoots = openLockFile(fnTempRoots, true);
-
-            fdGCLock = -1;
-
-            debug(format("acquiring read lock on '%1%'") % fnTempRoots);
-            lockFile(state->fdTempRoots.get(), ltRead, true);
-
-            /* Check whether the garbage collector didn't get in our
-               way. */
-            struct stat st;
-            if (fstat(state->fdTempRoots.get(), &st) == -1)
-                throw SysError(format("statting '%1%'") % fnTempRoots);
-            if (st.st_size == 0) break;
-
-            /* The garbage collector deleted this file before we could
-               get a lock.  (It won't delete the file after we get a
-               lock.)  Try again. */
-        }
-
-    }
-
-    /* Upgrade the lock to a write lock.  This will cause us to block
-       if the garbage collector is holding our lock. */
-    debug(format("acquiring write lock on '%1%'") % fnTempRoots);
-    lockFile(state->fdTempRoots.get(), ltWrite, true);
-
-    string s = path + '\0';
-    writeFull(state->fdTempRoots.get(), s);
-
-    /* Downgrade to a read lock. */
-    debug(format("downgrading to read lock on '%1%'") % fnTempRoots);
-    lockFile(state->fdTempRoots.get(), ltRead, true);
 }
 
 
@@ -206,8 +161,6 @@ void LocalStore::findTempRoots(FDs & fds, Roots & tempRoots, bool censor)
        files. */
     for (auto & i : readDirectory(tempRootsDir)) {
         Path path = tempRootsDir + "/" + i.name;
-
-        pid_t pid = std::stoi(i.name);
 
         debug(format("reading temporary root file '%1%'") % path);
         FDPtr fd(new AutoCloseFD(open(path.c_str(), O_CLOEXEC | O_RDWR, 0666)));
@@ -247,7 +200,7 @@ void LocalStore::findTempRoots(FDs & fds, Roots & tempRoots, bool censor)
             Path root(contents, pos, end - pos);
             debug("got temporary root '%s'", root);
             assertStorePath(root);
-            tempRoots[root].emplace(censor ? censored : fmt("{temp:%d}", pid));
+            tempRoots[root].emplace(censor ? censored : fmt("{temp:%s}", i.name));
             pos = end + 1;
         }
 

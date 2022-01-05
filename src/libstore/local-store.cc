@@ -257,16 +257,6 @@ LocalStore::~LocalStore()
         printError("waiting for auto-GC to finish on exit...");
         future.get();
     }
-
-    try {
-        auto state(_state.lock());
-        if (state->fdTempRoots) {
-            state->fdTempRoots = -1;
-            unlink(fnTempRoots.c_str());
-        }
-    } catch (...) {
-        ignoreException();
-    }
 }
 
 
