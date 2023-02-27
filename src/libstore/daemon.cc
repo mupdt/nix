@@ -660,6 +660,17 @@ static void performOp(TunnelLogger * logger, ref<Store> store,
         break;
     }
 
+    case wopAddPermRoot: {
+        auto storePath = store->parseStorePath(readString(from));
+        Path gcRoot = absPath(readString(from));
+        logger->startWork();
+        auto & gcStore = require<GcStore>(*store);
+        gcStore.addPermRoot(storePath, gcRoot);
+        logger->stopWork();
+        to << gcRoot;
+        break;
+    }
+
     case wopAddIndirectRoot: {
         Path path = absPath(readString(from));
 

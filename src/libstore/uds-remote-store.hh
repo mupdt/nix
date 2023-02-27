@@ -35,6 +35,9 @@ public:
     void narFromPath(const StorePath & path, Sink & sink) override
     { LocalFSStore::narFromPath(path, sink); }
 
+    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override
+    { return LocalFSStore::addPermRoot(storePath, gcRoot); }
+
 private:
 
     struct Connection : RemoteStore::Connection

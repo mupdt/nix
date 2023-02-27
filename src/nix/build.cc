@@ -114,7 +114,7 @@ struct CmdBuild : InstallablesCommand, MixDryRun, MixJSON, MixProfile
         if (json) logger->cout("%s", builtPathsWithResultToJSON(buildables, store).dump());
 
         if (outLink != "")
-            if (auto store2 = store.dynamic_pointer_cast<LocalFSStore>())
+            if (auto store2 = store.dynamic_pointer_cast<GcStore>())
                 for (const auto & [_i, buildable] : enumerate(buildables)) {
                     auto i = _i;
                     std::visit(overloaded {

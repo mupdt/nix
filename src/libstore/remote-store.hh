@@ -119,6 +119,8 @@ public:
 
     void addIndirectRoot(const Path & path) override;
 
+    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override;
+
     Roots findRoots(bool censor) override;
 
     void collectGarbage(const GCOptions & options, GCResults & results) override;

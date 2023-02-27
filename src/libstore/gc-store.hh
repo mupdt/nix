@@ -70,6 +70,9 @@ struct GcStore : public virtual Store
        `path' has disappeared. */
     virtual void addIndirectRoot(const Path & path) = 0;
 
+    /* Register a permanent GC root. */
+    virtual Path addPermRoot(const StorePath & storePath, const Path & gcRoot) = 0;
+
     /* Find the roots of the garbage collector.  Each root is a pair
        (link, storepath) where `link' is the path of the symlink
        outside of the Nix store that point to `storePath'. If
