@@ -27,6 +27,9 @@ struct RemoteStoreConfig : virtual StoreConfig
 
     const Setting<unsigned int> maxConnectionAge{(StoreConfig*) this, std::numeric_limits<unsigned int>::max(),
             "max-connection-age", "number of seconds to reuse a connection"};
+
+    const Setting<bool> outLinks{(StoreConfig*) this, false,
+            "out-links", "Indicates whether out-links (permanent GC roots) should be created on the remote."};
 };
 
 /* FIXME: RemoteStore is a misnomer - should be something like

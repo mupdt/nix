@@ -661,6 +661,8 @@ static void performOp(TunnelLogger * logger, ref<Store> store,
     }
 
     case wopAddPermRoot: {
+        if (!settings.allowPermRoots)
+            throw Error("Creating permanent GC roots is not allowed.");
         auto storePath = store->parseStorePath(readString(from));
         Path gcRoot = absPath(readString(from));
         logger->startWork();

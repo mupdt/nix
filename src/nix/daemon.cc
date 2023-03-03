@@ -294,45 +294,56 @@ static void daemonLoop()
     }
 }
 
-static void runDaemon(bool stdio)
+static void forwardStdioConnection(RemoteStore& store) {
+    auto conn = store.openConnectionWrapper();
+    int from = conn->from.fd;
+    int to = conn->to.fd;
+
+    auto nfds = std::max(from, STDIN_FILENO) + 1;
+    while (true) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(from, &fds);
+        FD_SET(STDIN_FILENO, &fds);
+        if (select(nfds, &fds, nullptr, nullptr, nullptr) == -1)
+            throw SysError("waiting for data from client or server");
+        if (FD_ISSET(from, &fds)) {
+            auto res = splice(from, nullptr, STDOUT_FILENO, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
+            if (res == -1)
+                throw SysError("splicing data from daemon socket to stdout");
+            else if (res == 0)
+                throw EndOfFile("unexpected EOF from daemon socket");
+        }
+        if (FD_ISSET(STDIN_FILENO, &fds)) {
+            auto res = splice(STDIN_FILENO, nullptr, to, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
+            if (res == -1)
+                throw SysError("splicing data from stdin to daemon socket");
+            else if (res == 0)
+                return;
+        }
+    }
+}
+
+static void processStdioConnection(ref<Store> store)
+{
+    FdSource from(STDIN_FILENO);
+    FdSink to(STDOUT_FILENO);
+    /* Auth hook is empty because in this mode we blindly trust the
+        standard streams. Limiting access to those is explicitly
+        not `nix-daemon`'s responsibility. */
+    processConnection(store, from, to, Trusted, NotRecursive);
+}
+
+static void runDaemon(bool stdio, bool processOps = false)
 {
     if (stdio) {
-        if (auto store = openUncachedStore().dynamic_pointer_cast<RemoteStore>()) {
-            auto conn = store->openConnectionWrapper();
-            int from = conn->from.fd;
-            int to = conn->to.fd;
+        auto store = openUncachedStore();
+        std::shared_ptr<RemoteStore> remoteStore;
 
-            auto nfds = std::max(from, STDIN_FILENO) + 1;
-            while (true) {
-                fd_set fds;
-                FD_ZERO(&fds);
-                FD_SET(from, &fds);
-                FD_SET(STDIN_FILENO, &fds);
-                if (select(nfds, &fds, nullptr, nullptr, nullptr) == -1)
-                    throw SysError("waiting for data from client or server");
-                if (FD_ISSET(from, &fds)) {
-                    auto res = splice(from, nullptr, STDOUT_FILENO, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
-                    if (res == -1)
-                        throw SysError("splicing data from daemon socket to stdout");
-                    else if (res == 0)
-                        throw EndOfFile("unexpected EOF from daemon socket");
-                }
-                if (FD_ISSET(STDIN_FILENO, &fds)) {
-                    auto res = splice(STDIN_FILENO, nullptr, to, nullptr, SSIZE_MAX, SPLICE_F_MOVE);
-                    if (res == -1)
-                        throw SysError("splicing data from stdin to daemon socket");
-                    else if (res == 0)
-                        return;
-                }
-            }
-        } else {
-            FdSource from(STDIN_FILENO);
-            FdSink to(STDOUT_FILENO);
-            /* Auth hook is empty because in this mode we blindly trust the
-               standard streams. Limiting access to those is explicitly
-               not `nix-daemon`'s responsibility. */
-            processConnection(openUncachedStore(), from, to, Trusted, NotRecursive);
-        }
+        if (!processOps && (remoteStore = store.dynamic_pointer_cast<RemoteStore>()))
+            forwardStdioConnection(*remoteStore);
+        else
+            processStdioConnection(store);
     } else
         daemonLoop();
 }
@@ -341,6 +352,7 @@ static int main_nix_daemon(int argc, char * * argv)
 {
     {
         auto stdio = false;
+        auto processOps = false;
 
         parseCmdLine(argc, argv, [&](Strings::iterator & arg, const Strings::iterator & end) {
             if (*arg == "--daemon")
@@ -351,11 +363,13 @@ static int main_nix_daemon(int argc, char * * argv)
                 printVersion("nix-daemon");
             else if (*arg == "--stdio")
                 stdio = true;
+            else if (*arg == "--process-ops")
+                processOps = true;
             else return false;
             return true;
         });
 
-        runDaemon(stdio);
+        runDaemon(stdio, processOps);
 
         return 0;
     }

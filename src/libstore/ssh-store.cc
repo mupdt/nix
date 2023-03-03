@@ -85,9 +85,17 @@ private:
 ref<RemoteStore::Connection> SSHStore::openConnection()
 {
     auto conn = make_ref<Connection>();
+
+    // By default, the daemon we spawn below forwards ops to the final remote
+    // store. In certain circumstances, however, we require the daemon to
+    // process the ops and perform some actions before it forwards them.
+    bool processOpsRemotely = outLinks.get();
+
     conn->sshConn = master.startCommand(
         fmt("%s --stdio", remoteProgram)
-        + (remoteStore.get() == "" ? "" : " --store " + shellEscape(remoteStore.get())));
+        + (remoteStore.get() == "" ? "" : " --store " + shellEscape(remoteStore.get()))
+        + (processOpsRemotely ? " --process-ops" : "")
+        + (outLinks.get() ? " --allow-perm-roots" : ""));
     conn->to = FdSink(conn->sshConn->in.get());
     conn->from = FdSource(conn->sshConn->out.get());
     return conn;

@@ -950,6 +950,10 @@ void RemoteStore::addTempRoot(const StorePath & path)
 
 Path RemoteStore::addPermRoot(const StorePath & path, const Path & gcRoot)
 {
+    if (!outLinks.get()) {
+        debug("Not creating permanent GC root '%s'.", gcRoot);
+        return gcRoot;
+    }
     auto conn(getConnection());
     conn->to << wopAddPermRoot << printStorePath(path) << gcRoot;
     conn.processStderr();
