@@ -1,5 +1,6 @@
 #include "ssh-store-config.hh"
 #include "store-api.hh"
+#include "local-fs-store.hh"
 #include "remote-store.hh"
 #include "remote-fs-accessor.hh"
 #include "archive.hh"
@@ -60,7 +61,7 @@ public:
     std::optional<std::string> getBuildLogExact(const StorePath & path) override
     { unsupported("getBuildLogExact"); }
 
-private:
+protected:
 
     struct Connection : RemoteStore::Connection
     {
@@ -76,6 +77,8 @@ private:
 
     std::string host;
 
+    std::string extraRemoteProgramArgs;
+
     SSHMaster master;
 
     void setOptions(RemoteStore::Connection & conn) override
@@ -89,17 +92,75 @@ private:
     };
 };
 
+/**
+ * The mounted ssh store assumes that filesystems on the remote host are shared
+ * with the local host. This means that the remote nix store is available
+ * locally and is therefore treated as a local filesystem store.
+ */
+class MountedSSHStore : public virtual SSHStore, public virtual LocalFSStore
+{
+public:
+
+    MountedSSHStore(const std::string & scheme, const std::string & host, const Params & params)
+        : StoreConfig(params)
+        , RemoteStoreConfig(params)
+        , SSHStoreConfig(params)
+        , Store(params)
+        , RemoteStore(params)
+        , SSHStore(scheme, host, params)
+        , LocalFSStoreConfig(params)
+        , LocalFSStore(params)
+    {
+        extraRemoteProgramArgs = "--process-ops --allow-perm-roots";
+    }
+
+    static std::set<std::string> uriSchemes()
+    {
+        return {"mounted-ssh-ng"};
+    }
+
+    std::string getUri() override
+    {
+        return *uriSchemes().begin() + "://" + host;
+    }
+
+    void narFromPath(const StorePath & path, Sink & sink) override
+    {
+        return SSHStore::narFromPath(path, sink);
+    }
+
+    ref<FSAccessor> getFSAccessor() override
+    {
+        return SSHStore::getFSAccessor();
+    }
+
+    std::optional<std::string> getBuildLogExact(const StorePath & path) override
+    {
+        return SSHStore::getBuildLogExact(path);
+    }
+
+    Path addPermRoot(const StorePath & path, const Path & gcRoot)
+    {
+        auto conn(getConnection());
+        conn->to << wopAddPermRoot << printStorePath(path) << gcRoot;
+        conn.processStderr();
+        return readString(conn->from);
+    }
+};
+
 ref<RemoteStore::Connection> SSHStore::openConnection()
 {
     auto conn = make_ref<Connection>();
     conn->sshConn = master.startCommand(
         fmt("%s --stdio", remoteProgram)
-        + (remoteStore.get() == "" ? "" : " --store " + shellEscape(remoteStore.get())));
+        + (remoteStore.get() == "" ? "" : " --store " + shellEscape(remoteStore.get()))
+        + (extraRemoteProgramArgs == "" ? "" : " " + extraRemoteProgramArgs));
     conn->to = FdSink(conn->sshConn->in.get());
     conn->from = FdSource(conn->sshConn->out.get());
     return conn;
 }
 
 static RegisterStoreImplementation<SSHStore, SSHStoreConfig> regSSHStore;
+static RegisterStoreImplementation<MountedSSHStore, SSHStoreConfig> regMountedSSHStore;
 
 }
