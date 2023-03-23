@@ -180,6 +180,8 @@ protected:
 
     virtual void narFromPath(const StorePath & path, Sink & sink) override;
 
+    Path addPermRoot(const StorePath & path, const Path & gcRoot);
+
 private:
 
     std::atomic_bool failed{false};

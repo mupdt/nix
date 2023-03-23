@@ -975,6 +975,21 @@ public:
           | `~/.nix-channels` | `$XDG_STATE_HOME/nix/channels` |
         )"
     };
+
+    Setting<bool> allowPermRoots{
+        this, false, "allow-perm-roots",
+        R"(
+          If set to `true`, the nix daemon will accept requests to create perm
+          roots and process them. Default is `false`.
+          > **Warning**
+          >
+          > This allows the nix daemon to create symlinks at any absolute path.
+          > This setting should not be enabled on multi-user nix daemons as this
+          > could mean that users could create symlinks anywhere.
+          >
+          > This setting is used automatically by the remote out-links feature
+          > and should never be turned on by the user.
+        )"};
 };
 
 

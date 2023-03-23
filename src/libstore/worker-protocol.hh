@@ -58,6 +58,7 @@ typedef enum {
     wopAddMultipleToStore = 44,
     wopAddBuildLog = 45,
     wopBuildPathsWithResults = 46,
+    wopAddPermRoot = 47,
 } WorkerOp;
 
 

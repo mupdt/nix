@@ -948,6 +948,15 @@ void RemoteStore::addTempRoot(const StorePath & path)
 }
 
 
+Path RemoteStore::addPermRoot(const StorePath & path, const Path & gcRoot)
+{
+    auto conn(getConnection());
+    conn->to << wopAddPermRoot << printStorePath(path) << gcRoot;
+    conn.processStderr();
+    return readString(conn->from);
+}
+
+
 void RemoteStore::addIndirectRoot(const Path & path)
 {
     auto conn(getConnection());

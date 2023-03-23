@@ -5,6 +5,7 @@
 #include "store-api.hh"
 #include "store-cast.hh"
 #include "gc-store.hh"
+#include "local-fs-store.hh"
 #include "log-store.hh"
 #include "path-with-outputs.hh"
 #include "finally.hh"
@@ -657,6 +658,19 @@ static void performOp(TunnelLogger * logger, ref<Store> store,
         store->addTempRoot(path);
         logger->stopWork();
         to << 1;
+        break;
+    }
+
+    case wopAddPermRoot: {
+        if (!settings.allowPermRoots)
+            throw Error("Creating permanent GC roots is not allowed.");
+        auto storePath = store->parseStorePath(readString(from));
+        Path gcRoot = absPath(readString(from));
+        logger->startWork();
+        auto & localFSStore = require<LocalFSStore>(*store);
+        localFSStore.addPermRoot(storePath, gcRoot);
+        logger->stopWork();
+        to << gcRoot;
         break;
     }
 
