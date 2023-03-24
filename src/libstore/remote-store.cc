@@ -277,47 +277,6 @@ void RemoteStore::setOptions(Connection & conn)
 }
 
 
-/* A wrapper around Pool<RemoteStore::Connection>::Handle that marks
-   the connection as bad (causing it to be closed) if a non-daemon
-   exception is thrown before the handle is closed. Such an exception
-   causes a deviation from the expected protocol and therefore a
-   desynchronization between the client and daemon. */
-struct ConnectionHandle
-{
-    Pool<RemoteStore::Connection>::Handle handle;
-    bool daemonException = false;
-
-    ConnectionHandle(Pool<RemoteStore::Connection>::Handle && handle)
-        : handle(std::move(handle))
-    { }
-
-    ConnectionHandle(ConnectionHandle && h)
-        : handle(std::move(h.handle))
-    { }
-
-    ~ConnectionHandle()
-    {
-        if (!daemonException && std::uncaught_exceptions()) {
-            handle.markBad();
-            debug("closing daemon connection because of an exception");
-        }
-    }
-
-    RemoteStore::Connection * operator -> () { return &*handle; }
-
-    void processStderr(Sink * sink = 0, Source * source = 0, bool flush = true)
-    {
-        auto ex = handle->processStderr(sink, source, flush);
-        if (ex) {
-            daemonException = true;
-            std::rethrow_exception(ex);
-        }
-    }
-
-    void withFramedSink(std::function<void(Sink & sink)> fun);
-};
-
-
 ConnectionHandle RemoteStore::getConnection()
 {
     return ConnectionHandle(connections->get());
@@ -945,15 +904,6 @@ void RemoteStore::addTempRoot(const StorePath & path)
     conn->to << wopAddTempRoot << printStorePath(path);
     conn.processStderr();
     readInt(conn->from);
-}
-
-
-Path RemoteStore::addPermRoot(const StorePath & path, const Path & gcRoot)
-{
-    auto conn(getConnection());
-    conn->to << wopAddPermRoot << printStorePath(path) << gcRoot;
-    conn.processStderr();
-    return readString(conn->from);
 }
 
 

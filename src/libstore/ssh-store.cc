@@ -132,10 +132,12 @@ public:
         return SSHStore::getBuildLogExact(path);
     }
 
-
-    Path addPermRoot(const StorePath & path, const Path & gcRoot) override
+    Path addPermRoot(const StorePath & path, const Path & gcRoot)
     {
-        return RemoteStore::addPermRoot(path, gcRoot);
+        auto conn(getConnection());
+        conn->to << wopAddPermRoot << printStorePath(path) << gcRoot;
+        conn.processStderr();
+        return readString(conn->from);
     }
 };
 
