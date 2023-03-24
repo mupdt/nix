@@ -987,8 +987,9 @@ public:
           > This setting should not be enabled on multi-user nix daemons as this
           > could mean that users could create symlinks anywhere.
           >
-          > This setting is used automatically by the remote out-links feature
-          > and should never be turned on by the user.
+          > This setting is used automatically by remote stores that support
+          > this feature (such as the `mounted-ssh-ng://` store) and should
+          > never be turned on by the user.
         )"};
 };
 
