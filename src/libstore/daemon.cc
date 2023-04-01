@@ -678,8 +678,8 @@ static void performOp(TunnelLogger * logger, ref<Store> store,
         Path path = absPath(readString(from));
 
         logger->startWork();
-        auto & gcStore = require<GcStore>(*store);
-        gcStore.addIndirectRoot(path);
+        auto & indirectRootStore = require<IndirectRootStore>(*store);
+        indirectRootStore.addIndirectRoot(path);
         logger->stopWork();
 
         to << 1;

@@ -1197,7 +1197,7 @@ struct RestrictedStoreConfig : virtual LocalFSStoreConfig
 /* A wrapper around LocalStore that only allows building/querying of
    paths that are in the input closures of the build or were added via
    recursive Nix calls. */
-struct RestrictedStore : public virtual RestrictedStoreConfig, public virtual LocalFSStore, public virtual GcStore
+struct RestrictedStore : public virtual RestrictedStoreConfig, public virtual IndirectRootStore, public virtual GcStore
 {
     ref<LocalStore> next;
 
@@ -1380,6 +1380,11 @@ struct RestrictedStore : public virtual RestrictedStoreConfig, public virtual Lo
 
     void addIndirectRoot(const Path & path) override
     { }
+
+    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override
+    {
+        return gcRoot;
+    }
 
     Roots findRoots(bool censor) override
     { return Roots(); }

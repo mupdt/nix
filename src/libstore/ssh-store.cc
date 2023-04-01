@@ -104,6 +104,7 @@ public:
     MountedSSHStore(const std::string & scheme, const std::string & host, const Params & params)
         : StoreConfig(params)
         , RemoteStoreConfig(params)
+        , CommonSSHStoreConfig(params)
         , SSHStoreConfig(params)
         , Store(params)
         , RemoteStore(params)
@@ -139,7 +140,7 @@ public:
         return SSHStore::getBuildLogExact(path);
     }
 
-    Path addPermRoot(const StorePath & path, const Path & gcRoot)
+    Path addPermRoot(const StorePath & path, const Path & gcRoot) override
     {
         auto conn(getConnection());
         conn->to << wopAddPermRoot << printStorePath(path) << gcRoot;

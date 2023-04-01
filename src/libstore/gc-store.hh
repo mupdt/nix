@@ -10,6 +10,9 @@ namespace nix {
 typedef std::unordered_map<StorePath, std::unordered_set<std::string>> Roots;
 
 
+void makeSymlink(const Path & link, const Path & target);
+
+
 struct GCOptions
 {
     /* Garbage collector operation:
@@ -63,13 +66,6 @@ struct GCResults
 struct GcStore : public virtual Store
 {
     inline static std::string operationName = "Garbage collection";
-
-    /* Add an indirect root, which is merely a symlink to `path' from
-       /nix/var/nix/gcroots/auto/<hash of `path'>.  `path' is supposed
-       to be a symlink to a store path.  The garbage collector will
-       automatically remove the indirect root when it finds that
-       `path' has disappeared. */
-    virtual void addIndirectRoot(const Path & path) = 0;
 
     /* Find the roots of the garbage collector.  Each root is a pair
        (link, storepath) where `link' is the path of the symlink

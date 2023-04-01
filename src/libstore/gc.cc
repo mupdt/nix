@@ -28,7 +28,7 @@ static std::string gcSocketPath = "/gc-socket/socket";
 static std::string gcRootsDir = "gcroots";
 
 
-static void makeSymlink(const Path & link, const Path & target)
+void makeSymlink(const Path & link, const Path & target)
 {
     /* Create directories up to `gcRoot'. */
     createDirs(dirOf(link));
@@ -50,7 +50,7 @@ void LocalStore::addIndirectRoot(const Path & path)
 }
 
 
-Path LocalFSStore::addPermRoot(const StorePath & storePath, const Path & _gcRoot)
+Path LocalPermRootStore::addPermRoot(const StorePath & storePath, const Path & _gcRoot)
 {
     Path gcRoot(canonPath(_gcRoot));
 

@@ -49,8 +49,10 @@ public:
     void narFromPath(const StorePath & path, Sink & sink) override;
     ref<FSAccessor> getFSAccessor() override;
 
-    /* Register a permanent GC root. */
-    virtual Path addPermRoot(const StorePath & storePath, const Path & gcRoot);
+    /* Creates the `gcRoot` symlink to the `storePath` and registers
+       the `gcRoot` as a permanent GC root. The `gcRoot` symlink lives
+       outside the store and is created and owned by the user. */
+    virtual Path addPermRoot(const StorePath & storePath, const Path & gcRoot) = 0;
 
     virtual Path getRealStoreDir() { return realStoreDir; }
 
@@ -62,6 +64,26 @@ public:
 
     std::optional<std::string> getBuildLogExact(const StorePath & path) override;
 
+};
+
+struct IndirectRootStore : public virtual LocalFSStore
+{
+    inline static std::string operationName = "Indirect GC roots registration";
+
+    /* Add an indirect root, which is merely a symlink to `path' from
+       /nix/var/nix/gcroots/auto/<hash of `path'>.  `path' is supposed
+       to be a symlink to a store path.  The garbage collector will
+       automatically remove the indirect root when it finds that
+       `path' has disappeared. */
+    virtual void addIndirectRoot(const Path & path) = 0;
+};
+
+
+struct LocalPermRootStore : public virtual IndirectRootStore
+{
+    inline static std::string operationName = "Local permanent GC roots registration";
+
+    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override;
 };
 
 }
