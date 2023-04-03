@@ -15,6 +15,35 @@
 
 namespace nix::daemon {
 
+/**
+ * Settings for the daemon; settings for the management of incomming requests
+ *
+ * @todo Figure out division of labor between this and the arguments to
+ * processConnection().
+ */
+struct DaemonSettings : Config {
+    Setting<bool> allowPermRoots{
+        this, false, "allow-perm-roots",
+        R"(
+          If set to `true`, the nix daemon will accept requests to create perm
+          roots and process them. Default is `false`.
+          > **Warning**
+          >
+          > This allows the nix daemon to create symlinks at any absolute path.
+          > This setting should not be enabled on multi-user nix daemons as this
+          > could mean that users could create symlinks anywhere.
+          >
+          > This setting is used automatically by remote stores that support
+          > this feature (such as the `mounted-ssh-ng://` store) and should
+          > never be turned on by the user.
+        )"};
+};
+
+// FIXME should not a be global.
+DaemonSettings daemonSettings;
+
+static GlobalConfig::Register rSettings(&daemonSettings);
+
 Sink & operator << (Sink & sink, const Logger::Fields & fields)
 {
     sink << fields.size();
@@ -662,7 +691,7 @@ static void performOp(TunnelLogger * logger, ref<Store> store,
     }
 
     case wopAddPermRoot: {
-        if (!settings.allowPermRoots)
+        if (!daemonSettings.allowPermRoots)
             throw Error("Creating permanent GC roots is not allowed.");
         auto storePath = store->parseStorePath(readString(from));
         Path gcRoot = absPath(readString(from));
