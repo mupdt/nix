@@ -1381,11 +1381,6 @@ struct RestrictedStore : public virtual RestrictedStoreConfig, public virtual In
     void addIndirectRoot(const Path & path) override
     { }
 
-    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override
-    {
-        return gcRoot;
-    }
-
     Roots findRoots(bool censor) override
     { return Roots(); }
 

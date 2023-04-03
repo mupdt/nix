@@ -49,9 +49,20 @@ public:
     void narFromPath(const StorePath & path, Sink & sink) override;
     ref<FSAccessor> getFSAccessor() override;
 
-    /* Creates the `gcRoot` symlink to the `storePath` and registers
-       the `gcRoot` as a permanent GC root. The `gcRoot` symlink lives
-       outside the store and is created and owned by the user. */
+    /**
+     * Creates symlink from the `gcRoot` to the `storePath` and
+     * registers the `gcRoot` as a permanent GC root. The `gcRoot`
+     * symlink lives outside the store and is created and owned by the
+     * user.
+     *
+     * @param gcRoot The location of the symlink.
+     *
+     * @param storePath The store object being rooted. The symlink will
+     * point to `toRealPath(store.printStorePath(storePath))`.
+     *
+     * How the permanent GC root corresponding to this symlink is
+     * managed is implementation-specific.
+     */
     virtual Path addPermRoot(const StorePath & storePath, const Path & gcRoot) = 0;
 
     virtual Path getRealStoreDir() { return realStoreDir; }
@@ -66,24 +77,44 @@ public:
 
 };
 
+/**
+ * Mix-in class for implementing permenent roots as a pair of a direct
+ * (strong) reference and indirect weak reference to the first
+ * reference.
+ *
+ * See methods for details.
+ */
 struct IndirectRootStore : public virtual LocalFSStore
 {
     inline static std::string operationName = "Indirect GC roots registration";
 
-    /* Add an indirect root, which is merely a symlink to `path' from
-       /nix/var/nix/gcroots/auto/<hash of `path'>.  `path' is supposed
-       to be a symlink to a store path.  The garbage collector will
-       automatically remove the indirect root when it finds that
-       `path' has disappeared. */
+    /**
+     * Implementation of LocalFSStore::addPermRoot which the permanent
+     * root is a pair of
+     *
+     * - The user-facing symlink which all implementations must create
+     *
+     * - An additional weak reference known as the "indirect root" that
+     *   points to that symlink.
+     *
+     * The garbage collector will automatically remove the indirect root
+     * when it finds that the symlink has disappeared.
+     *
+     * The implementation of this method is concrete, but it delegates
+     * to addIndirectRoot() which is abstract.
+     */
+    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override final;
+
+    /**
+     * Add an indirect root, which is a weak reference to the
+     * user-facing symlink created by addPermRoot().
+     *
+     * @param path user-facing and user-controlled symlink to a store
+     * path.
+     *
+     * The form this weak-reference takes is implementation-specific.
+     */
     virtual void addIndirectRoot(const Path & path) = 0;
-};
-
-
-struct LocalPermRootStore : public virtual IndirectRootStore
-{
-    inline static std::string operationName = "Local permanent GC roots registration";
-
-    Path addPermRoot(const StorePath & storePath, const Path & gcRoot) override;
 };
 
 }

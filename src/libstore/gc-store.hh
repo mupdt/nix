@@ -63,6 +63,26 @@ struct GCResults
 };
 
 
+/**
+ * Mix-in class for \ref Store "stores" which expose a notion of garbage
+ * collection.
+ *
+ * Garbage collection will allow deleting paths which are not
+ * transitively "rooted".
+ *
+ * The notion of GC roots actually not part of this class.
+ *
+ *  - The base Store class has Store::addTempRoot() because for a store
+ *    that doesn't support garbage collection at all, a temporary GC root
+ *    is safely implementable as no-op.
+ *
+ *  - The derived LocalFSStore class has LocalFSStore::addPermRoot,
+ *    which is not part of this class because it relies on the notion of
+ *    an ambient file system. There are stores (`ssh-ng://`, for one),
+ *    that *do* support garbage collection but *don't* expose any file
+ *    system, and LocalFSStore::addPermRoot thus does not make sense for
+ *    them.
+ */
 struct GcStore : public virtual Store
 {
     inline static std::string operationName = "Garbage collection";

@@ -77,7 +77,7 @@ protected:
 
     std::string host;
 
-    std::string extraRemoteProgramArgs;
+    std::vector<std::string> extraRemoteProgramArgs;
 
     SSHMaster master;
 
@@ -93,9 +93,18 @@ protected:
 };
 
 /**
- * The mounted ssh store assumes that filesystems on the remote host are shared
- * with the local host. This means that the remote nix store is available
- * locally and is therefore treated as a local filesystem store.
+ * The mounted ssh store assumes that filesystems on the remote host are
+ * shared with the local host. This means that the remote nix store is
+ * available locally and is therefore treated as a local filesystem
+ * store.
+ *
+ * MountedSSHStore is very similar to UDSRemoteStore --- ignoring the
+ * superficial differnce of SSH vs Unix domain sockets, they both are
+ * accessing remote stores, and they both assume the store will be
+ * mounted in the local filesystem.
+ *
+ * The difference lies in how they manage GC roots. See addPermRoot
+ * below for details.
  */
 class MountedSSHStore : public virtual SSHStore, public virtual LocalFSStore
 {
@@ -112,7 +121,10 @@ public:
         , LocalFSStoreConfig(params)
         , LocalFSStore(params)
     {
-        extraRemoteProgramArgs = "--process-ops --allow-perm-roots";
+        extraRemoteProgramArgs = {
+            "--process-ops",
+            "--allow-perm-roots"
+        };
     }
 
     static std::set<std::string> uriSchemes()
@@ -123,6 +135,15 @@ public:
     std::string getUri() override
     {
         return *uriSchemes().begin() + "://" + host;
+    }
+
+    const std::string name() override { return "Experimental SSH Store with filesytem mounted"; }
+
+    std::string doc() override
+    {
+        return
+          #include "mounted-ssh-store.md"
+          ;
     }
 
     void narFromPath(const StorePath & path, Sink & sink) override
@@ -140,6 +161,21 @@ public:
         return SSHStore::getBuildLogExact(path);
     }
 
+    /**
+     * This is the key difference from UDSRemoteStore: UDSRemote store
+     * has the client create the direct root, and the remote side create
+     * the indirect root.
+     *
+     * We could also do that, but the race of race conditions (will the
+     * remote side see the direct root the client made?) seems bigger.
+     *
+     * In addition, the remote-side will have a process associated with
+     * the authenticating user handlering the connection (even if there
+     * is a system-wide daemon or similar). This process can safely make
+     * the direct and indrect roots without there being such a risk of
+     * privilage escalation / symlinks in directories owned by the
+     * originating requester that they cannot delete.
+     */
     Path addPermRoot(const StorePath & path, const Path & gcRoot) override
     {
         auto conn(getConnection());
@@ -152,10 +188,14 @@ public:
 ref<RemoteStore::Connection> SSHStore::openConnection()
 {
     auto conn = make_ref<Connection>();
-    conn->sshConn = master.startCommand(
-        fmt("%s --stdio", remoteProgram)
-        + (remoteStore.get() == "" ? "" : " --store " + shellEscape(remoteStore.get()))
-        + (extraRemoteProgramArgs == "" ? "" : " " + extraRemoteProgramArgs));
+
+    std::string command = remoteProgram + " --stdio";
+    if (remoteStore.get() != "")
+        command += " --store " + shellEscape(remoteStore.get());
+    for (auto & arg : extraRemoteProgramArgs)
+        command += " " + shellEscape(arg);
+
+    conn->sshConn = master.startCommand(command);
     conn->to = FdSink(conn->sshConn->in.get());
     conn->from = FdSource(conn->sshConn->out.get());
     return conn;

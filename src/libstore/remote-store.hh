@@ -17,7 +17,6 @@ class Pipe;
 class Pid;
 struct FdSink;
 struct FdSource;
-struct ConnectionHandle;
 
 struct RemoteStoreConfig : virtual StoreConfig
 {
@@ -173,6 +172,8 @@ protected:
 
     void setOptions() override;
 
+    struct ConnectionHandle;
+
     ConnectionHandle getConnection();
 
     friend struct ConnectionHandle;
@@ -190,12 +191,14 @@ private:
         std::shared_ptr<Store> evalStore);
 };
 
-/* A wrapper around Pool<RemoteStore::Connection>::Handle that marks
-   the connection as bad (causing it to be closed) if a non-daemon
-   exception is thrown before the handle is closed. Such an exception
-   causes a deviation from the expected protocol and therefore a
-   desynchronization between the client and daemon. */
-struct ConnectionHandle
+/**
+ * A wrapper around Pool<RemoteStore::Connection>::Handle that marks
+ * the connection as bad (causing it to be closed) if a non-daemon
+ * exception is thrown before the handle is closed. Such an exception
+ * causes a deviation from the expected protocol and therefore a
+ * desynchronization between the client and daemon.
+ */
+struct RemoteStore::ConnectionHandle
 {
     Pool<RemoteStore::Connection>::Handle handle;
     bool daemonException = false;
@@ -208,24 +211,12 @@ struct ConnectionHandle
         : handle(std::move(h.handle))
     { }
 
-    ~ConnectionHandle()
-    {
-        if (!daemonException && std::uncaught_exceptions()) {
-            handle.markBad();
-            debug("closing daemon connection because of an exception");
-        }
-    }
+    ~ConnectionHandle();
 
+    RemoteStore::Connection & operator * () { return *handle; }
     RemoteStore::Connection * operator -> () { return &*handle; }
 
-    void processStderr(Sink * sink = 0, Source * source = 0, bool flush = true)
-    {
-        auto ex = handle->processStderr(sink, source, flush);
-        if (ex) {
-            daemonException = true;
-            std::rethrow_exception(ex);
-        }
-    }
+    void processStderr(Sink * sink = 0, Source * source = 0, bool flush = true);
 
     void withFramedSink(std::function<void(Sink & sink)> fun);
 };

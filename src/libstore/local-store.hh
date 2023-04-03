@@ -49,7 +49,6 @@ struct LocalStoreConfig : virtual LocalFSStoreConfig
 
 class LocalStore : public virtual LocalStoreConfig
     , public virtual IndirectRootStore
-    , public virtual LocalPermRootStore
     , public virtual GcStore
 {
 private:
@@ -169,6 +168,12 @@ private:
 
 public:
 
+    /**
+     * Implementation of IndirectRootStore::addIndirectRoot().
+     *
+     * The weak reference merely is a symlink to `path' from
+     * /nix/var/nix/gcroots/auto/<hash of `path'>.
+     */
     void addIndirectRoot(const Path & path) override;
 
 private:

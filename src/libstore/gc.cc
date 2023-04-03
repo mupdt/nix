@@ -50,7 +50,7 @@ void LocalStore::addIndirectRoot(const Path & path)
 }
 
 
-Path LocalPermRootStore::addPermRoot(const StorePath & storePath, const Path & _gcRoot)
+Path IndirectRootStore::addPermRoot(const StorePath & storePath, const Path & _gcRoot)
 {
     Path gcRoot(canonPath(_gcRoot));
 
