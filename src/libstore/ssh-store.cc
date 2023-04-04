@@ -148,17 +148,17 @@ public:
 
     void narFromPath(const StorePath & path, Sink & sink) override
     {
-        return SSHStore::narFromPath(path, sink);
+        return LocalFSStore::narFromPath(path, sink);
     }
 
     ref<FSAccessor> getFSAccessor() override
     {
-        return SSHStore::getFSAccessor();
+        return LocalFSStore::getFSAccessor();
     }
 
     std::optional<std::string> getBuildLogExact(const StorePath & path) override
     {
-        return SSHStore::getBuildLogExact(path);
+        return LocalFSStore::getBuildLogExact(path);
     }
 
     /**
