@@ -247,6 +247,17 @@ void MaxBuildJobsSetting::set(const std::string & str, bool append)
     }
 }
 
+void MaxSubstitutionJobsSetting::set(const std::string & str, bool append)
+{
+    if (str == "auto") value = std::max(1U, std::thread::hardware_concurrency());
+    else {
+        if (auto n = string2Int<decltype(value)>(str))
+            value = std::max(1U, *n);
+        else
+            throw UsageError("configuration setting '%s' should be 'auto' or an integer", name);
+    }
+}
+
 
 void PluginFilesSetting::set(const std::string & str, bool append)
 {
